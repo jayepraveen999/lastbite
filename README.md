@@ -251,15 +251,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License.
 
-## 👥 Authors
-
-- **Jayendra Chorapalli** - Initial work
-
-## 🙏 Acknowledgments
-
-- Inspired by the food sharing community in Munich
-- Built with ❤️ to reduce food waste and help those in need
-
 ## 📞 Support
 
 For support, email jayepraveen999@gmail.com or open an issue in the GitHub repository.
