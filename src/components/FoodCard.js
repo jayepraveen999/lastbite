@@ -18,7 +18,7 @@ const FoodCard = ({ item }) => {
                 activeOpacity={0.95}
                 onPress={() => setShowDetails(true)}
             >
-                <Image source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
+                <Image key={item.id} source={{ uri: item.image }} style={styles.image} resizeMode="cover" />
 
                 <LinearGradient
                     colors={['transparent', 'rgba(0,0,0,0.8)']}
@@ -77,7 +77,7 @@ const FoodCard = ({ item }) => {
                         </TouchableOpacity>
 
                         <ScrollView>
-                            <Image source={{ uri: item.image }} style={styles.modalImage} />
+                            <Image key={item.id} source={{ uri: item.image }} style={styles.modalImage} />
                             <View style={styles.modalInfo}>
                                 <Text style={styles.modalTitle}>{item.title}</Text>
 
