@@ -10,13 +10,16 @@ import { COLORS, SPACING, FONT_SIZE } from '../constants/theme';
 import Input from '../components/Input';
 import Button from '../components/Button';
 import { auth, db, storage } from '../config/firebaseConfig';
-import { Camera } from 'lucide-react-native';
+import { Camera, MapPin } from 'lucide-react-native';
+import { getCurrentLocation } from '../utils/locationService';
 
 const AddFoodScreen = ({ navigation }) => {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [expiry, setExpiry] = useState('');
     const [image, setImage] = useState(null);
+    const [location, setLocation] = useState(null);
+    const [loadingLocation, setLoadingLocation] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const pickImage = async () => {
@@ -87,9 +90,35 @@ const AddFoodScreen = ({ navigation }) => {
         }
     };
 
+    const getLocation = async () => {
+        setLoadingLocation(true);
+        try {
+            const userLocation = await getCurrentLocation();
+            if (userLocation) {
+                setLocation(userLocation);
+                console.log('Location captured:', userLocation);
+            } else {
+                Alert.alert('Location Error', 'Could not get your location. Please enable location services.');
+            }
+        } catch (error) {
+            console.error('Location error:', error);
+            Alert.alert('Location Error', 'Failed to get location. You can still post without it.');
+        } finally {
+            setLoadingLocation(false);
+        }
+    };
+
     const handlePost = async () => {
         if (!title || !description || !image) {
             Alert.alert('Error', 'Please fill in all fields and add an image');
+            return;
+        }
+
+        if (!location) {
+            Alert.alert('Location Required', 'Please add your location so others can find your food in Munich!', [
+                { text: 'Add Location', onPress: getLocation },
+                { text: 'Cancel', style: 'cancel' }
+            ]);
             return;
         }
 
@@ -104,9 +133,17 @@ const AddFoodScreen = ({ navigation }) => {
                 imageUrl,
                 createdBy: auth.currentUser.uid,
                 creatorName: auth.currentUser.displayName || 'Anonymous',
+                location: {
+                    lat: location.lat,
+                    lng: location.lng,
+                    address: location.address,
+                    city: location.city || 'Munich',
+                    district: location.district || ''
+                },
                 createdAt: serverTimestamp(),
                 status: 'available',
-                location: null // TODO: Add location later
+                reservedBy: null,
+                reservedByUsername: null
             });
 
             Alert.alert('Success', 'Your food has been posted!', [
@@ -117,6 +154,7 @@ const AddFoodScreen = ({ navigation }) => {
                         setDescription('');
                         setExpiry('');
                         setImage(null);
+                        setLocation(null);
                         navigation.navigate('HomeTab');
                     }
                 }
@@ -141,6 +179,21 @@ const AddFoodScreen = ({ navigation }) => {
                             <Text style={styles.placeholderText}>Add Food Photo</Text>
                         </View>
                     )}
+                </TouchableOpacity>
+
+                {/* Location Button */}
+                <TouchableOpacity
+                    style={[styles.locationButton, location && styles.locationButtonActive]}
+                    onPress={getLocation}
+                    disabled={loadingLocation}
+                >
+                    <MapPin
+                        color={location ? COLORS.white : COLORS.primary}
+                        size={20}
+                    />
+                    <Text style={[styles.locationButtonText, location && styles.locationButtonTextActive]}>
+                        {loadingLocation ? 'Getting location...' : location ? location.address : 'Add Location (Munich)'}
+                    </Text>
                 </TouchableOpacity>
 
                 <Input
@@ -199,6 +252,29 @@ const styles = StyleSheet.create({
     image: {
         width: '100%',
         height: '100%',
+    },
+    locationButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: SPACING.m,
+        backgroundColor: COLORS.white,
+        borderRadius: 12,
+        marginBottom: SPACING.l,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        gap: SPACING.s,
+    },
+    locationButtonActive: {
+        backgroundColor: COLORS.primary,
+    },
+    locationButtonText: {
+        fontSize: FONT_SIZE.m,
+        fontWeight: '600',
+        color: COLORS.primary,
+    },
+    locationButtonTextActive: {
+        color: COLORS.white,
     },
     placeholder: {
         alignItems: 'center',

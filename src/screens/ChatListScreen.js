@@ -1,60 +1,146 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, Image, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { COLORS, SPACING, FONT_SIZE } from '../constants/theme';
-
-const MOCK_CHATS = [
-    {
-        id: '1',
-        name: 'Alex',
-        lastMessage: 'Is the lasagna still available?',
-        time: '2m ago',
-        avatar: 'https://images.unsplash.com/photo-1599566150163-29194dcaad36?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-        unread: 2,
-    },
-    {
-        id: '2',
-        name: 'Sarah',
-        lastMessage: 'Great, I can pick it up in 10 mins.',
-        time: '1h ago',
-        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-        unread: 0,
-    },
-];
+import { collection, query, where, getDocs, orderBy, or } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
+import { COLORS, SPACING, FONT_SIZE, SHADOWS } from '../constants/theme';
+import { MessageCircle } from 'lucide-react-native';
 
 const ChatListScreen = ({ navigation }) => {
-    const renderItem = ({ item }) => (
+    const [chats, setChats] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadChats();
+
+        // Refresh when screen is focused
+        const unsubscribe = navigation.addListener('focus', () => {
+            loadChats();
+        });
+
+        return unsubscribe;
+    }, [navigation]);
+
+    const loadChats = async () => {
+        try {
+            const currentUser = auth.currentUser;
+
+            // Get all matches where user is either giver or seeker
+            const matchesRef = collection(db, 'matches');
+            const q = query(
+                matchesRef,
+                or(
+                    where('giverId', '==', currentUser.uid),
+                    where('seekerId', '==', currentUser.uid)
+                ),
+                orderBy('createdAt', 'desc')
+            );
+
+            const snapshot = await getDocs(q);
+            const matchData = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            // Filter to only show matches with status 'interested' or 'approved'
+            const activeChats = matchData.filter(match =>
+                match.status === 'interested' || match.status === 'approved'
+            );
+
+            // Format for display
+            const formattedChats = activeChats.map(match => {
+                const isGiver = match.giverId === currentUser.uid;
+                return {
+                    id: match.id,
+                    matchId: match.id,
+                    name: isGiver ? match.seekerUsername : match.giverUsername,
+                    foodTitle: match.foodTitle,
+                    foodImage: match.foodImage,
+                    status: match.status,
+                    lastMessage: match.status === 'interested' ? 'Pending approval' : 'Approved',
+                    isGiver: isGiver
+                };
+            });
+
+            setChats(formattedChats);
+        } catch (error) {
+            console.error('Error loading chats:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const renderChat = ({ item }) => (
         <TouchableOpacity
             style={styles.chatItem}
-            onPress={() => navigation.navigate('ChatDetail', { name: item.name })}
+            onPress={() => navigation.navigate('RequestChat', { matchId: item.matchId })}
         >
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
-            <View style={styles.chatInfo}>
-                <View style={styles.header}>
-                    <Text style={styles.name}>{item.name}</Text>
-                    <Text style={styles.time}>{item.time}</Text>
+            <Image source={{ uri: item.foodImage }} style={styles.foodImage} />
+
+            <View style={styles.chatContent}>
+                <View style={styles.chatHeader}>
+                    <Text style={styles.chatName}>{item.name}</Text>
+                    {item.status === 'interested' && (
+                        <View style={styles.pendingBadge}>
+                            <Text style={styles.pendingText}>Pending</Text>
+                        </View>
+                    )}
+                    {item.status === 'approved' && (
+                        <View style={styles.approvedBadge}>
+                            <Text style={styles.approvedText}>Approved</Text>
+                        </View>
+                    )}
                 </View>
-                <Text style={styles.lastMessage} numberOfLines={1}>{item.lastMessage}</Text>
+                <Text style={styles.foodTitle} numberOfLines={1}>
+                    {item.foodTitle}
+                </Text>
+                <Text style={styles.lastMessage} numberOfLines={1}>
+                    {item.isGiver ? 'Request from ' : 'Your request to '}{item.name}
+                </Text>
             </View>
-            {item.unread > 0 && (
-                <View style={styles.unreadBadge}>
-                    <Text style={styles.unreadText}>{item.unread}</Text>
-                </View>
-            )}
+
+            <MessageCircle size={20} color={COLORS.textLight} />
         </TouchableOpacity>
     );
 
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.header}>
+                    <Text style={styles.title}>Messages</Text>
+                </View>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.headerContainer}>
-                <Text style={styles.screenTitle}>Messages</Text>
+            <View style={styles.header}>
+                <Text style={styles.title}>Messages</Text>
+                {chats.length > 0 && (
+                    <Text style={styles.subtitle}>{chats.length} conversations</Text>
+                )}
             </View>
-            <FlatList
-                data={MOCK_CHATS}
-                renderItem={renderItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.list}
-            />
+
+            {chats.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <MessageCircle size={64} color={COLORS.textLight} />
+                    <Text style={styles.emptyText}>No messages yet</Text>
+                    <Text style={styles.emptySubText}>
+                        Your conversations will appear here when you match with food items
+                    </Text>
+                </View>
+            ) : (
+                <FlatList
+                    data={chats}
+                    renderItem={renderChat}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.list}
+                />
+            )}
         </SafeAreaView>
     );
 };
@@ -64,73 +150,108 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: COLORS.background,
     },
-    headerContainer: {
+    header: {
         padding: SPACING.m,
         backgroundColor: COLORS.white,
         borderBottomWidth: 1,
         borderBottomColor: COLORS.border,
     },
-    screenTitle: {
+    title: {
         fontSize: FONT_SIZE.xl,
         fontWeight: 'bold',
         color: COLORS.text,
+    },
+    subtitle: {
+        fontSize: FONT_SIZE.s,
+        color: COLORS.textLight,
+        marginTop: 4,
     },
     list: {
         padding: SPACING.m,
     },
     chatItem: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: SPACING.m,
         backgroundColor: COLORS.white,
         borderRadius: 12,
-        marginBottom: SPACING.s,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
+        padding: SPACING.m,
+        marginBottom: SPACING.m,
+        alignItems: 'center',
+        ...SHADOWS.small,
     },
-    avatar: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
+    foodImage: {
+        width: 60,
+        height: 60,
+        borderRadius: 8,
         marginRight: SPACING.m,
     },
-    chatInfo: {
+    chatContent: {
         flex: 1,
     },
-    header: {
+    chatHeader: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: 4,
     },
-    name: {
+    chatName: {
         fontSize: FONT_SIZE.m,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: COLORS.text,
+        marginRight: SPACING.s,
     },
-    time: {
+    pendingBadge: {
+        backgroundColor: COLORS.warning || '#FF9800',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    pendingText: {
         fontSize: FONT_SIZE.xs,
-        color: COLORS.textLight,
+        color: COLORS.white,
+        fontWeight: '600',
+    },
+    approvedBadge: {
+        backgroundColor: COLORS.success || '#4CAF50',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    approvedText: {
+        fontSize: FONT_SIZE.xs,
+        color: COLORS.white,
+        fontWeight: '600',
+    },
+    foodTitle: {
+        fontSize: FONT_SIZE.s,
+        color: COLORS.primary,
+        fontWeight: '600',
+        marginBottom: 2,
     },
     lastMessage: {
         fontSize: FONT_SIZE.s,
         color: COLORS.textLight,
     },
-    unreadBadge: {
-        backgroundColor: COLORS.primary,
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        alignItems: 'center',
+    loadingContainer: {
+        flex: 1,
         justifyContent: 'center',
-        marginLeft: SPACING.s,
+        alignItems: 'center',
     },
-    unreadText: {
-        color: COLORS.white,
-        fontSize: 10,
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: SPACING.xl,
+    },
+    emptyText: {
+        fontSize: FONT_SIZE.l,
         fontWeight: 'bold',
+        color: COLORS.text,
+        marginTop: SPACING.m,
+        marginBottom: SPACING.s,
+    },
+    emptySubText: {
+        fontSize: FONT_SIZE.m,
+        color: COLORS.textLight,
+        textAlign: 'center',
     },
 });
 

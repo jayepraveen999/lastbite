@@ -13,6 +13,11 @@ import AddFoodScreen from '../screens/AddFoodScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import ChatScreen from '../screens/ChatScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import MyListingsScreen from '../screens/MyListingsScreen';
+import MyPickupsScreen from '../screens/MyPickupsScreen';
+import RequestChatScreen from '../screens/RequestChatScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -102,6 +107,31 @@ const AppNavigator = () => {
                     <>
                         <Stack.Screen name="Main" component={TabNavigator} />
                         <Stack.Screen name="ChatDetail" component={ChatScreen} />
+                        <Stack.Screen
+                            name="MyListings"
+                            component={MyListingsScreen}
+                            options={{ headerShown: true, title: 'My Listings' }}
+                        />
+                        <Stack.Screen
+                            name="MyPickups"
+                            component={MyPickupsScreen}
+                            options={{ headerShown: true, title: 'My Pickups' }}
+                        />
+                        <Stack.Screen
+                            name="RequestChat"
+                            component={RequestChatScreen}
+                            options={{ headerShown: true, title: 'Chat' }}
+                        />
+                        <Stack.Screen
+                            name="Settings"
+                            component={SettingsScreen}
+                            options={{ headerShown: true, title: 'Settings' }}
+                        />
+                        <Stack.Screen
+                            name="Achievements"
+                            component={AchievementsScreen}
+                            options={{ headerShown: true, title: 'Achievements' }}
+                        />
                     </>
                 ) : (
                     <>
