@@ -42,13 +42,13 @@ const ChatListScreen = ({ navigation }) => {
                 ...doc.data()
             }));
 
-            // Filter to only show matches with status 'interested' or 'approved'
-            const activeChats = matchData.filter(match =>
-                match.status === 'interested' || match.status === 'approved'
+            // ONLY show approved chats (not pending requests)
+            const approvedChats = matchData.filter(match =>
+                match.status === 'approved'
             );
 
             // Format for display
-            const formattedChats = activeChats.map(match => {
+            const formattedChats = approvedChats.map(match => {
                 const isGiver = match.giverId === currentUser.uid;
                 return {
                     id: match.id,
@@ -57,7 +57,7 @@ const ChatListScreen = ({ navigation }) => {
                     foodTitle: match.foodTitle,
                     foodImage: match.foodImage,
                     status: match.status,
-                    lastMessage: match.status === 'interested' ? 'Pending approval' : 'Approved',
+                    lastMessage: 'Approved - Ready to coordinate pickup',
                     isGiver: isGiver
                 };
             });
@@ -80,22 +80,15 @@ const ChatListScreen = ({ navigation }) => {
             <View style={styles.chatContent}>
                 <View style={styles.chatHeader}>
                     <Text style={styles.chatName}>{item.name}</Text>
-                    {item.status === 'interested' && (
-                        <View style={styles.pendingBadge}>
-                            <Text style={styles.pendingText}>Pending</Text>
-                        </View>
-                    )}
-                    {item.status === 'approved' && (
-                        <View style={styles.approvedBadge}>
-                            <Text style={styles.approvedText}>Approved</Text>
-                        </View>
-                    )}
+                    <View style={styles.approvedBadge}>
+                        <Text style={styles.approvedText}>Active</Text>
+                    </View>
                 </View>
                 <Text style={styles.foodTitle} numberOfLines={1}>
                     {item.foodTitle}
                 </Text>
                 <Text style={styles.lastMessage} numberOfLines={1}>
-                    {item.isGiver ? 'Request from ' : 'Your request to '}{item.name}
+                    {item.isGiver ? 'Pickup with ' : 'Picking up from '}{item.name}
                 </Text>
             </View>
 
@@ -128,9 +121,9 @@ const ChatListScreen = ({ navigation }) => {
             {chats.length === 0 ? (
                 <View style={styles.emptyState}>
                     <MessageCircle size={64} color={COLORS.textLight} />
-                    <Text style={styles.emptyText}>No messages yet</Text>
+                    <Text style={styles.emptyText}>No active chats yet</Text>
                     <Text style={styles.emptySubText}>
-                        Your conversations will appear here when you match with food items
+                        Approved requests will appear here for coordination
                     </Text>
                 </View>
             ) : (

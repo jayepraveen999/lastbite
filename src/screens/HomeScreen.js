@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, Text, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X, Heart } from 'lucide-react-native';
@@ -12,6 +12,8 @@ const HomeScreen = ({ navigation }) => {
     const [foodItems, setFoodItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [userLocation, setUserLocation] = useState(null);
+    const swipeLeftTrigger = useRef(null);
+    const swipeRightTrigger = useRef(null);
 
     useEffect(() => {
         loadFoodItems();
@@ -37,6 +39,9 @@ const HomeScreen = ({ navigation }) => {
                 id: doc.id,
                 ...doc.data()
             }));
+
+            console.log('Food Items Loaded:', items.length);
+            items.forEach(i => console.log(`- ${i.title} (${i.id})`));
 
             console.log('Raw food items:', items.map(i => ({
                 title: i.title,
@@ -144,6 +149,8 @@ const HomeScreen = ({ navigation }) => {
                     data={foodItems}
                     onSwipeLeft={handleSwipeLeft}
                     onSwipeRight={handleSwipeRight}
+                    onSwipeLeftPress={swipeLeftTrigger}
+                    onSwipeRightPress={swipeRightTrigger}
                 />
             </View>
 
@@ -151,22 +158,14 @@ const HomeScreen = ({ navigation }) => {
             <View style={styles.actionButtons}>
                 <TouchableOpacity
                     style={[styles.actionButton, styles.passButton]}
-                    onPress={() => {
-                        if (foodItems.length > 0) {
-                            handleSwipeLeft(foodItems[0]);
-                        }
-                    }}
+                    onPress={() => swipeLeftTrigger.current?.()}
                 >
                     <X size={32} color={COLORS.error} />
                 </TouchableOpacity>
 
                 <TouchableOpacity
                     style={[styles.actionButton, styles.likeButton]}
-                    onPress={() => {
-                        if (foodItems.length > 0) {
-                            handleSwipeRight(foodItems[0]);
-                        }
-                    }}
+                    onPress={() => swipeRightTrigger.current?.()}
                 >
                     <Heart size={32} color={COLORS.white} />
                 </TouchableOpacity>

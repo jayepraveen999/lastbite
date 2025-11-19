@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
-import { GestureDetector, Gesture, GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useState, useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import { View, StyleSheet, Dimensions, Text } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
     useSharedValue,
     useAnimatedStyle,
@@ -12,27 +12,26 @@ import Animated, {
 import FoodCard from './FoodCard';
 import { COLORS } from '../constants/theme';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 const SWIPE_THRESHOLD = width * 0.3;
 
-const SwipeDeck = ({ data, onSwipeLeft, onSwipeRight }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
+// Inner component that handles the gesture and animation for a SINGLE card
+const SwipeableCard = forwardRef(({ item, onSwipeComplete }, ref) => {
     const translateX = useSharedValue(0);
     const translateY = useSharedValue(0);
 
-    const currentItem = data[currentIndex];
-    const nextItem = data[currentIndex + 1];
-
-    const handleSwipeComplete = (direction) => {
-        if (direction === 'right') {
-            onSwipeRight && onSwipeRight(currentItem);
-        } else {
-            onSwipeLeft && onSwipeLeft(currentItem);
+    useImperativeHandle(ref, () => ({
+        swipeLeft: () => {
+            translateX.value = withSpring(-width * 1.5, {}, () => {
+                runOnJS(onSwipeComplete)('left');
+            });
+        },
+        swipeRight: () => {
+            translateX.value = withSpring(width * 1.5, {}, () => {
+                runOnJS(onSwipeComplete)('right');
+            });
         }
-        setCurrentIndex((prev) => prev + 1);
-        translateX.value = 0;
-        translateY.value = 0;
-    };
+    }));
 
     const pan = Gesture.Pan()
         .onUpdate((event) => {
@@ -43,7 +42,7 @@ const SwipeDeck = ({ data, onSwipeLeft, onSwipeRight }) => {
             if (Math.abs(event.translationX) > SWIPE_THRESHOLD) {
                 const direction = event.translationX > 0 ? 'right' : 'left';
                 translateX.value = withSpring(direction === 'right' ? width * 1.5 : -width * 1.5, {}, () => {
-                    runOnJS(handleSwipeComplete)(direction);
+                    runOnJS(onSwipeComplete)(direction);
                 });
             } else {
                 translateX.value = withSpring(0);
@@ -68,7 +67,51 @@ const SwipeDeck = ({ data, onSwipeLeft, onSwipeRight }) => {
         };
     });
 
-    if (currentIndex >= data.length) {
+    return (
+        <GestureDetector gesture={pan}>
+            <Animated.View style={[styles.cardContainer, animatedStyle]}>
+                <FoodCard item={item} />
+            </Animated.View>
+        </GestureDetector>
+    );
+});
+
+const SwipeDeck = ({ data, onSwipeLeft, onSwipeRight, onSwipeLeftPress, onSwipeRightPress }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const currentCardRef = useRef(null);
+
+    const currentItem = data[currentIndex];
+    const nextItem = data[currentIndex + 1];
+
+    // Connect external triggers to the current card
+    useEffect(() => {
+        if (onSwipeLeftPress) {
+            onSwipeLeftPress.current = () => {
+                currentCardRef.current?.swipeLeft();
+            };
+        }
+        if (onSwipeRightPress) {
+            onSwipeRightPress.current = () => {
+                currentCardRef.current?.swipeRight();
+            };
+        }
+    }, [onSwipeLeftPress, onSwipeRightPress, currentIndex]); // Re-bind when index changes
+
+    const handleSwipeComplete = (direction) => {
+        const item = data[currentIndex];
+        if (!item) return;
+
+        if (direction === 'right') {
+            onSwipeRight && onSwipeRight(item);
+        } else {
+            onSwipeLeft && onSwipeLeft(item);
+        }
+
+        // Just update index - the key prop will handle the reset!
+        setCurrentIndex((prev) => prev + 1);
+    };
+
+    if (currentIndex >= data.length || !currentItem) {
         return (
             <View style={styles.container}>
                 <View style={styles.emptyState}>
@@ -83,20 +126,25 @@ const SwipeDeck = ({ data, onSwipeLeft, onSwipeRight }) => {
         <View style={styles.container}>
             {nextItem && (
                 <View style={[styles.cardContainer, styles.nextCard]}>
-                    <FoodCard item={nextItem} />
+                    <FoodCard key={nextItem.id} item={nextItem} />
                 </View>
             )}
 
-            <GestureDetector gesture={pan}>
-                <Animated.View style={[styles.cardContainer, animatedStyle]}>
-                    <FoodCard item={currentItem} />
-                </Animated.View>
-            </GestureDetector>
+            {/* 
+                KEY PROP IS CRITICAL HERE:
+                When key changes (new item), React unmounts the old SwipeableCard 
+                (destroying its state) and mounts a new one (with fresh state).
+                This prevents the "flash back" and image flickering.
+            */}
+            <SwipeableCard
+                key={currentItem.id}
+                ref={currentCardRef}
+                item={currentItem}
+                onSwipeComplete={handleSwipeComplete}
+            />
         </View>
     );
 };
-
-import { Text } from 'react-native'; // Import Text here to avoid conflict with Animated.Text if used
 
 const styles = StyleSheet.create({
     container: {
