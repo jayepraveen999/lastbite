@@ -1,23 +1,34 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE } from '../constants/theme';
 import Input from '../components/Input';
 import Button from '../components/Button';
+
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../config/firebaseConfig';
 
 const LoginScreen = ({ navigation }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = () => {
+    const handleLogin = async () => {
+        if (!email || !password) {
+            alert('Please enter both email and password');
+            return;
+        }
+
         setLoading(true);
-        setTimeout(() => {
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            // Navigation is handled by the AppNavigator listening to auth state
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        } finally {
             setLoading(false);
-            // In a real app, we would set the auth state here
-            // For now, we can't easily toggle the AppNavigator state from here without context
-            // But we can simulate navigation or just show it works
-            alert('Login clicked! (Auth logic pending)');
-        }, 1000);
+        }
     };
 
     return (

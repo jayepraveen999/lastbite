@@ -1,8 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZE } from '../constants/theme';
 import Input from '../components/Input';
 import Button from '../components/Button';
+
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '../config/firebaseConfig';
+import { generateUniqueUsername } from '../utils/usernameGenerator';
 
 const SignupScreen = ({ navigation }) => {
     const [name, setName] = useState('');
@@ -10,12 +16,46 @@ const SignupScreen = ({ navigation }) => {
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSignup = () => {
+    const handleSignup = async () => {
+        if (!email || !password) {
+            alert('Please enter email and password');
+            return;
+        }
+
         setLoading(true);
-        setTimeout(() => {
+        try {
+            // 1. Create Auth User
+            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+            const user = userCredential.user;
+
+            // 2. Generate Anonymous Username
+            const username = await generateUniqueUsername(db, true); // true = include Munich-themed names
+            console.log('Generated username:', username);
+
+            // 3. Update Profile with anonymous username
+            await updateProfile(user, { displayName: username });
+
+            // 4. Create User Document in Firestore
+            await setDoc(doc(db, 'users', user.uid), {
+                uid: user.uid,
+                username: username, // Anonymous username (e.g., "HungryPanda42")
+                email: email,
+                realName: name || null, // Store real name privately (never displayed)
+                createdAt: serverTimestamp(),
+                stats: {
+                    shared: 0,
+                    rescued: 0,
+                    karma: 0
+                }
+            });
+
+            // Navigation is handled by AppNavigator listening to auth state
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        } finally {
             setLoading(false);
-            alert('Signup clicked! (Auth logic pending)');
-        }, 1000);
+        }
     };
 
     return (
@@ -23,13 +63,13 @@ const SignupScreen = ({ navigation }) => {
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.header}>
                     <Text style={styles.title}>Create Account</Text>
-                    <Text style={styles.subtitle}>Join the community to save food</Text>
+                    <Text style={styles.subtitle}>You'll get an anonymous username like "HungryPanda42"</Text>
                 </View>
 
                 <View style={styles.form}>
                     <Input
-                        label="Full Name"
-                        placeholder="John Doe"
+                        label="Name (Optional)"
+                        placeholder="For your records only"
                         value={name}
                         onChangeText={setName}
                     />

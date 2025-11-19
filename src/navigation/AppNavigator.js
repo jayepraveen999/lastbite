@@ -69,14 +69,36 @@ const TabNavigator = () => {
     );
 };
 
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../config/firebaseConfig';
+import { View, ActivityIndicator } from 'react-native';
+import { useState, useEffect } from 'react';
+
 const AppNavigator = () => {
-    // Mock Authentication State
-    const isAuthenticated = true;
+    const [user, setUser] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            setUser(user);
+            setLoading(false);
+        });
+
+        return unsubscribe;
+    }, []);
+
+    if (loading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+        );
+    }
 
     return (
         <NavigationContainer>
             <Stack.Navigator screenOptions={{ headerShown: false }}>
-                {isAuthenticated ? (
+                {user ? (
                     <>
                         <Stack.Screen name="Main" component={TabNavigator} />
                         <Stack.Screen name="ChatDetail" component={ChatScreen} />

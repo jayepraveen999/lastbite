@@ -1,18 +1,21 @@
 import React from 'react';
-import { View, Text, Image, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Settings, Award, Heart, LogOut, ChevronRight } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZE, SHADOWS } from '../constants/theme';
+import { auth } from '../config/firebaseConfig';
 
 const ProfileScreen = () => {
-    const user = {
-        name: 'Jayendra',
-        email: 'jayendra@example.com',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-        stats: {
-            shared: 12,
-            rescued: 8,
-            karma: 450,
-        },
+    // Get anonymous username from Firebase Auth
+    const currentUser = auth.currentUser;
+    const username = currentUser?.displayName || 'Anonymous';
+    const email = currentUser?.email || '';
+
+    // TODO: Fetch real stats from Firestore
+    const stats = {
+        shared: 0,
+        rescued: 0,
+        karma: 0,
     };
 
     const MenuItem = ({ icon: Icon, title, subtitle, color = COLORS.text }) => (
@@ -32,24 +35,26 @@ const ProfileScreen = () => {
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.content}>
                 <View style={styles.header}>
-                    <Image source={{ uri: user.avatar }} style={styles.avatar} />
-                    <Text style={styles.name}>{user.name}</Text>
-                    <Text style={styles.email}>{user.email}</Text>
+                    <View style={styles.avatarPlaceholder}>
+                        <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.name}>{username}</Text>
+                    <Text style={styles.email}>{email}</Text>
                 </View>
 
                 <View style={styles.statsContainer}>
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{user.stats.shared}</Text>
+                        <Text style={styles.statValue}>{stats.shared}</Text>
                         <Text style={styles.statLabel}>Shared</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Text style={styles.statValue}>{user.stats.rescued}</Text>
+                        <Text style={styles.statValue}>{stats.rescued}</Text>
                         <Text style={styles.statLabel}>Rescued</Text>
                     </View>
                     <View style={styles.statDivider} />
                     <View style={styles.statItem}>
-                        <Text style={[styles.statValue, { color: COLORS.primary }]}>{user.stats.karma}</Text>
+                        <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.karma}</Text>
                         <Text style={styles.statLabel}>Karma</Text>
                     </View>
                 </View>
@@ -62,7 +67,7 @@ const ProfileScreen = () => {
                 </View>
 
                 <View style={styles.section}>
-                    <TouchableOpacity style={styles.logoutButton}>
+                    <TouchableOpacity style={styles.logoutButton} onPress={() => auth.signOut()}>
                         <LogOut size={20} color={COLORS.error} />
                         <Text style={styles.logoutText}>Log Out</Text>
                     </TouchableOpacity>
